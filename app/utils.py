@@ -1,16 +1,15 @@
 from passlib.context import CryptContext
-import pickle
-import os
-from sklearn.ensemble import RandomForestRegressor
-import numpy as np
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def hash_password(password: str):
-    return pwd_context.hash(password)
+def hash_password(password: str) -> str:
+    # Truncate password to 72 characters before hashing
+    return pwd_context.hash(password[:72])
 
-def verify_password(plain_password: str, hashed_password: str):
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    # Truncate again to ensure verification works
+    return pwd_context.verify(plain_password[:72], hashed_password)
+
 
 def calculate_wellness_score(sleep_hours: float, steps: int, calories: int, stress_level: int) -> float:
     score = 0.0
@@ -47,7 +46,7 @@ def calculate_wellness_score(sleep_hours: float, steps: int, calories: int, stre
     
     return min(100, max(0, score))
 
-def generate_recommendations(sleep_hours: float, steps: int, calories: int, stress_level: int, wellness_score: float) -> list:
+def generate_recommendations(sleep_hours: float, steps: int, calories: int, stress_level: int, wellness_score: float) -> list[str]:
     recommendations = []
     
     if sleep_hours < 7:

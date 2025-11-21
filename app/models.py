@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
 from app.database import Base
+from sqlalchemy import Text
 
 class UserRole(str, enum.Enum):
     ADMIN = "admin"
@@ -60,7 +61,7 @@ class AIInsight(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    insight_text = Column(String, nullable=False)
+    insight_text = Column(Text, nullable=False)  # <-- change here
     generated_at = Column(DateTime, default=datetime.utcnow)
     
     user = relationship("User", back_populates="ai_insights")

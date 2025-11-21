@@ -9,6 +9,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Trackers from './pages/Trackers';
 import Goals from './pages/Goals';
+import Analytics from './pages/Analytics';
 import AIAssistant from './pages/AIAssistant';
 import Profile from './pages/Profile';
 import AdminPanel from './pages/AdminPanel';
@@ -61,6 +62,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Goals />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <PrivateRoute>
+                <Analytics />
               </PrivateRoute>
             }
           />

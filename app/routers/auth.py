@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app import models, schemas, utils, oauth2
 from app.database import get_db
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -34,18 +35,22 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     
     return new_user
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 @router.post("/login", response_model=schemas.Token)
-def login(user_credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == user_credentials.username).first()
-    
+def login(user_credentials: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == user_credentials.email).first()
+
     if not user or not utils.verify_password(user_credentials.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid credentials"
         )
-    
+
     access_token = oauth2.create_access_token(
         data={"user_email": user.email, "role": user.role.value}
     )
-    
+
     return {"access_token": access_token, "token_type": "bearer"}

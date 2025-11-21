@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, validator
 from datetime import date, datetime
 from typing import Optional, List
 from app.models import UserRole
@@ -14,6 +14,13 @@ class UserCreate(UserBase):
     height: Optional[float] = None
     weight: Optional[float] = None
     activity_level: Optional[str] = None
+
+    @validator("password")
+    def password_length(cls, v):
+        if len(v) > 72:
+            raise ValueError("Password cannot exceed 72 characters")
+        return v
+
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None

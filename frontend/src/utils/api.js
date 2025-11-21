@@ -21,11 +21,11 @@ api.interceptors.request.use(
     return Promise.reject(error);
   }
 );
-
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
-  login: (data) => api.post('/auth/login', new URLSearchParams(data)),
+  login: (data) => api.post('/auth/login', data), // send JSON
 };
+
 
 export const userAPI = {
   getMe: () => api.get('/users/me'),
