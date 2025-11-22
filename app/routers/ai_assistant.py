@@ -23,10 +23,9 @@ except Exception:
 openai_api_key = os.getenv("OPENAI_API_KEY")
 if openai_api_key:
     os.environ["OPENAI_API_KEY"] = openai_api_key
-    client = OpenAI()
+    client = OpenAI(api_key=openai_api_key)
 else:
     client = None
-client = OpenAI(api_key=openai_api_key) if openai_api_key else None
 
 # --------------------------
 # Generate AI Insights
@@ -36,9 +35,13 @@ def generate_insight(
     current_user: models.User = Depends(oauth2.get_current_user),
     db: Session = Depends(get_db)
 ):
-    latest_trackers = db.query(models.Tracker).filter(
-        models.Tracker.user_id == current_user.id
-    ).order_by(models.Tracker.date.desc()).limit(7).all()
+    latest_trackers = (
+        db.query(models.Tracker)
+        .filter(models.Tracker.user_id == current_user.id)
+        .order_by(models.Tracker.date.desc())
+        .limit(7)
+        .all()
+    )
 
     if not latest_trackers:
         raise HTTPException(
@@ -81,6 +84,7 @@ def generate_insight(
 
     return {"insight": insight_text}
 
+
 # --------------------------
 # Chat with AI assistant
 # --------------------------
@@ -109,9 +113,13 @@ def chat_with_assistant(
         }
 
     # Include recent health data for context
-    latest_trackers = db.query(models.Tracker).filter(
-        models.Tracker.user_id == current_user.id
-    ).order_by(models.Tracker.date.desc()).limit(7).all()
+    latest_trackers = (
+        db.query(models.Tracker)
+        .filter(models.Tracker.user_id == current_user.id)
+        .order_by(models.Tracker.date.desc())
+        .limit(7)
+        .all()
+    )
 
     context = ""
     if latest_trackers:
@@ -133,10 +141,7 @@ def chat_with_assistant(
                     "role": "system",
                     "content": f"You are a helpful health and wellness assistant. Provide personalized advice based on user's health data. Be supportive, motivating, and evidence-based.{context}"
                 },
-                {
-                    "role": "user",
-                    "content": chat.message
-                }
+                {"role": "user", "content": chat.message}
             ],
             max_tokens=500,
             temperature=0.7
@@ -167,6 +172,7 @@ def chat_with_assistant(
             detail=f"Error communicating with AI assistant: {str(e)}"
         )
 
+
 # --------------------------
 # Get past AI insights
 # --------------------------
@@ -176,8 +182,11 @@ def get_insights(
     current_user: models.User = Depends(oauth2.get_current_user),
     db: Session = Depends(get_db)
 ):
-    insights = db.query(models.AIInsight).filter(
-        models.AIInsight.user_id == current_user.id
-    ).order_by(models.AIInsight.generated_at.desc()).limit(limit).all()
-
+    insights = (
+        db.query(models.AIInsight)
+        .filter(models.AIInsight.user_id == current_user.id)
+        .order_by(models.AIInsight.generated_at.desc())
+        .limit(limit)
+        .all()
+    )
     return insights

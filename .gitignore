@@ -59,3 +59,12 @@ frontend/dist/
 # Cache
 .cache/
 *.pyc
+
+.local/
+dump.rdb
+attached_assets/
+*.old.jsx
+.replit
+replit.md
+.local/
+dump.rdb
