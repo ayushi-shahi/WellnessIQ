@@ -2,33 +2,32 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app import models, schemas, oauth2
 from app.database import get_db
-import os
+from app.config import GEMINI_API_KEY, REDIS_URL
 import redis
-from openai import OpenAI
+from google import genai
+
 
 router = APIRouter(prefix="/ai", tags=["AI Assistant"])
 
 # --------------------------
-# Redis setup (optional)
+# Redis Setup
 # --------------------------
-redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
 try:
-    redis_client = redis.from_url(redis_url, decode_responses=True)
+    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 except Exception:
     redis_client = None
 
 # --------------------------
-# OpenAI client setup
+# Gemini Flash 2.5 Model
 # --------------------------
-openai_api_key = os.getenv("OPENAI_API_KEY")
-if openai_api_key:
-    os.environ["OPENAI_API_KEY"] = openai_api_key
-    client = OpenAI(api_key=openai_api_key)
-else:
-    client = None
+if not GEMINI_API_KEY:
+    raise Exception("GEMINI_API_KEY is missing")
+
+genai_client = genai.Client(api_key=GEMINI_API_KEY)
+AI_MODEL = "gemini-2.5-flash"
 
 # --------------------------
-# Generate AI Insights
+# AI Insight Generator
 # --------------------------
 @router.post("/insight")
 def generate_insight(
@@ -51,28 +50,27 @@ def generate_insight(
 
     latest = latest_trackers[0]
 
+    insights = []
     if len(latest_trackers) > 1:
         avg_sleep = sum(t.sleep_hours or 0 for t in latest_trackers) / len(latest_trackers)
         avg_steps = sum(t.steps or 0 for t in latest_trackers) / len(latest_trackers)
         avg_stress = sum(t.stress_level or 0 for t in latest_trackers) / len(latest_trackers)
 
-        insights = []
-
         if (latest.sleep_hours or 0) < avg_sleep - 1:
-            insights.append(f"You're sleeping less than your weekly average ({avg_sleep:.1f} hours). Try winding down earlier.")
+            insights.append(f"You're sleeping less than your weekly average ({avg_sleep:.1f} hrs). Try winding down earlier.")
 
         if (latest.steps or 0) < avg_steps * 0.7:
-            insights.append(f"Your step count is lower than usual. Consider a light walk to boost activity.")
+            insights.append("Your steps are lower than usual. Consider taking a light walk today.")
 
-        if (latest.stress_level or 0) > avg_stress + 2 and (latest.steps or 0) < avg_steps:
-            insights.append("Your stress is correlating with fewer steps — consider a light walk to reduce stress.")
+        if (latest.stress_level or 0) > avg_stress + 2:
+            insights.append("Stress levels are higher than your average. Try some breathing exercises.")
 
-        if (latest.mood_score or 0) < 5 and (latest.sleep_hours or 0) < 7:
-            insights.append("Low mood may be related to insufficient sleep. Aim for 7-9 hours tonight.")
+        if (latest.mood_score or 0) < 5:
+            insights.append("Your mood score seems low. Try a relaxing activity or talk to someone you trust.")
 
-        insight_text = " ".join(insights) if insights else "You're maintaining consistent wellness habits. Keep it up!"
+        insight_text = " ".join(insights) if insights else "You're maintaining consistent wellness habits!"
     else:
-        insight_text = "Start logging daily to receive personalized insights based on your trends."
+        insight_text = "Start logging daily to receive personalized insights."
 
     new_insight = models.AIInsight(
         user_id=current_user.id,
@@ -84,9 +82,8 @@ def generate_insight(
 
     return {"insight": insight_text}
 
-
 # --------------------------
-# Chat with AI assistant
+# CHAT WITH AI (Gemini Flash 2.5)
 # --------------------------
 @router.post("/assistant", response_model=schemas.ChatResponse)
 def chat_with_assistant(
@@ -96,60 +93,39 @@ def chat_with_assistant(
 ):
     cache_key = f"ai:chat:{current_user.id}:{hash(chat.message)}"
 
-    # Check Redis cache
     if redis_client:
-        try:
-            cached_response = redis_client.get(cache_key)
-            if cached_response:
-                return {"response": cached_response, "cached": True}
-        except Exception:
-            pass
+        cached = redis_client.get(cache_key)
+        if cached:
+            return {"response": cached, "cached": True}
 
-    # If OpenAI not configured
-    if not client:
-        return {
-            "response": "AI assistant is not configured. Please add your OPENAI_API_KEY to enable this feature.",
-            "cached": False
-        }
-
-    # Include recent health data for context
-    latest_trackers = (
+    latest = (
         db.query(models.Tracker)
         .filter(models.Tracker.user_id == current_user.id)
         .order_by(models.Tracker.date.desc())
-        .limit(7)
-        .all()
+        .first()
     )
 
     context = ""
-    if latest_trackers:
-        latest = latest_trackers[0]
+    if latest:
         context = (
-            f"\n\nUser's recent health data: "
-            f"Sleep: {latest.sleep_hours or 'N/A'} hours, "
-            f"Steps: {latest.steps or 'N/A'}, "
-            f"Calories: {latest.calories or 'N/A'}, "
-            f"Mood: {latest.mood_score or 'N/A'}/10, "
-            f"Stress: {latest.stress_level or 'N/A'}/10."
+            f"User's recent health data:\n"
+            f"- Sleep: {latest.sleep_hours or 'N/A'} hrs\n"
+            f"- Steps: {latest.steps or 'N/A'}\n"
+            f"- Calories: {latest.calories or 'N/A'}\n"
+            f"- Mood: {latest.mood_score or 'N/A'}/10\n"
+            f"- Stress: {latest.stress_level or 'N/A'}/10\n"
         )
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": f"You are a helpful health and wellness assistant. Provide personalized advice based on user's health data. Be supportive, motivating, and evidence-based.{context}"
-                },
-                {"role": "user", "content": chat.message}
-            ],
-            max_tokens=500,
-            temperature=0.7
+        response = genai_client.models.generate_content(
+            model=AI_MODEL,
+            contents=f"You are a helpful health assistant.\n"
+                    f"{context}\n"
+                    f"User asks: {chat.message}"
         )
 
-        ai_response = response.choices[0].message.content
+        ai_response = response.text
 
-        # Save AI insight
         new_insight = models.AIInsight(
             user_id=current_user.id,
             insight_text=f"Q: {chat.message}\nA: {ai_response}"
@@ -157,24 +133,17 @@ def chat_with_assistant(
         db.add(new_insight)
         db.commit()
 
-        # Cache in Redis
         if redis_client:
-            try:
-                redis_client.setex(cache_key, 3600, ai_response)
-            except Exception:
-                pass
+            redis_client.setex(cache_key, 3600, ai_response)
 
         return {"response": ai_response, "cached": False}
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error communicating with AI assistant: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error communicating with AI assistant: {str(e)}")
 
 
 # --------------------------
-# Get past AI insights
+# Get Past AI Insights
 # --------------------------
 @router.get("/insights", response_model=list[schemas.AIInsightResponse])
 def get_insights(
