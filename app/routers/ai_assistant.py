@@ -6,29 +6,22 @@ from app.config import GEMINI_API_KEY, REDIS_URL
 import redis
 from google import genai
 
-
 router = APIRouter(prefix="/ai", tags=["AI Assistant"])
 
-# --------------------------
 # Redis Setup
-# --------------------------
 try:
     redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 except Exception:
     redis_client = None
 
-# --------------------------
 # Gemini Flash 2.5 Model
-# --------------------------
 if not GEMINI_API_KEY:
     raise Exception("GEMINI_API_KEY is missing")
 
 genai_client = genai.Client(api_key=GEMINI_API_KEY)
 AI_MODEL = "gemini-2.5-flash"
 
-# --------------------------
 # AI Insight Generator
-# --------------------------
 @router.post("/insight")
 def generate_insight(
     current_user: models.User = Depends(oauth2.get_current_user),
@@ -82,9 +75,7 @@ def generate_insight(
 
     return {"insight": insight_text}
 
-# --------------------------
 # CHAT WITH AI (Gemini Flash 2.5)
-# --------------------------
 @router.post("/assistant", response_model=schemas.ChatResponse)
 def chat_with_assistant(
     chat: schemas.ChatMessage,
@@ -117,12 +108,34 @@ def chat_with_assistant(
         )
 
     try:
+       
         response = genai_client.models.generate_content(
-            model=AI_MODEL,
-            contents=f"You are a helpful health assistant.\n"
-                    f"{context}\n"
-                    f"User asks: {chat.message}"
-        )
+        model=AI_MODEL,
+        contents=(
+                    "You are a friendly and professional AI health assistant. "
+                    "Always provide answers in a structured, readable plain text format. "
+                    "Do not include any Markdown symbols like ** or #. "
+                    "Do not write literal text such as 'Bold heading:' or 'Bold subheading:'. "
+                    "Do not use bullet points or code blocks.\n\n"
+
+                    "Structure the response like this:\n"
+                    "1. Summary: One short paragraph (2-3 lines) summarizing the answer.\n"
+                    "2. Key Details:\n"
+                    "   Sleep: 1-3 sentences about sleep.\n"
+                    "   Steps: 1-3 sentences about activity/steps.\n"
+                    "   Mood: 1-3 sentences about mood.\n"
+                    "   Stress: 1-3 sentences about stress.\n"
+                    "   General Explanation: 1-3 sentences about overall health context.\n"
+                    "3. Recommendation: Short, clear actionable advice.\n\n"
+
+                    "Make headings visually distinct by capitalizing or writing on a separate line, "
+                    "subheadings slightly indented or on their own line. Keep the tone supportive, positive, and easy to read.\n\n"
+
+                    "User's recent wellness data:\n"
+                    f"{context}\n\n"
+                    f"User question: {chat.message}"
+                )
+            )
 
         ai_response = response.text
 
@@ -142,9 +155,7 @@ def chat_with_assistant(
         raise HTTPException(status_code=500, detail=f"Error communicating with AI assistant: {str(e)}")
 
 
-# --------------------------
 # Get Past AI Insights
-# --------------------------
 @router.get("/insights", response_model=list[schemas.AIInsightResponse])
 def get_insights(
     limit: int = 10,

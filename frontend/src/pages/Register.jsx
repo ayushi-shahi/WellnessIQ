@@ -57,7 +57,7 @@ const Register = () => {
             <Input
               type="text"
               label="Full Name"
-              placeholder="John Doe"
+              placeholder="Enter Your Name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
@@ -71,7 +71,7 @@ const Register = () => {
             <Input
               type="email"
               label="Email Address"
-              placeholder="you@example.com"
+              placeholder="you@gmail.com"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
