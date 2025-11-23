@@ -8,7 +8,7 @@ A comprehensive full-stack application for tracking physical and mental wellness
 - **User Authentication**: JWT-based authentication with role-based access control (Admin/User)
 - **Health Tracking**: Daily tracking of sleep, steps, calories, mood, and stress levels
 - **Goal Management**: Set and monitor wellness goals with progress tracking
-- **AI Insights**: Personalized health recommendations using OpenAI
+- **AI Insights**: Personalized health recommendations using Gemini 
 - **Analytics Dashboard**: Interactive charts and visualizations with Recharts
 - **Admin Panel**: View all users' aggregated health data and analytics
 
@@ -27,7 +27,7 @@ A comprehensive full-stack application for tracking physical and mental wellness
 - **Database**: PostgreSQL
 - **Authentication**: JWT with OAuth2PasswordBearer
 - **Caching**: Redis
-- **AI**: OpenAI API
+- **AI**: Gemini API
 - **ML**: Scikit-learn, Pandas, NumPy
 - **Migrations**: Alembic
 
@@ -60,7 +60,7 @@ cd health-wellness-tracker
 2. **Set up environment variables**
 ```bash
 cp .env.example .env
-# Edit .env and add your DATABASE_URL, OPENAI_API_KEY, and SECRET_KEY
+# Edit .env and add your DATABASE_URL, GEMINI_API_KEY, and SECRET_KEY
 ```
 
 3. **Install backend dependencies**
@@ -168,7 +168,7 @@ This will start:
 
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/wellness_db
-OPENAI_API_KEY=your-openai-api-key
+GEMINI_API_KEY=your-gemini-api-key
 SECRET_KEY=your-jwt-secret-key
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
